@@ -1,6 +1,6 @@
 package multithreading;
 
-public class Example {
+public class Example1Ver1 {
 
     static class S implements Runnable {
         private boolean state = false;
