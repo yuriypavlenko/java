@@ -1,15 +1,48 @@
-package multithreading;
+package multithreading.sw;
 
-public class Example1Ver1 {
+public class Example1Ver2 {
 
-    static class S implements Runnable {
+    static class State {
         private boolean state = false;
         private boolean stop = false;
 
+        synchronized public void setState(boolean newState) {
+            state = newState;
+
+            if (newState) {
+                System.out.println("Продолжаем");
+                notifyAll();
+            }
+        }
+
+        synchronized public boolean getState() {
+            if (!state) {
+                try {
+                    System.out.println("Жди");
+                    wait();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            return state;
+        }
+
+        public void stop() {
+            stop = true;
+        }
+    }
+
+    static class S implements Runnable {
+        State state;
+        boolean newState;
+
+        public S(State state) {
+            this.state = state;
+        }
         public void run() {
-            while (!stop) {
-                boolean newState = !state;
-                setState(newState);
+            while (!state.stop) {
+                newState = !newState;
+                state.setState(newState);
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
@@ -18,43 +51,18 @@ public class Example1Ver1 {
             }
             System.out.println("S stopped!");
         }
-
-        public void stop() {
-            stop = true;
-        }
-
-        synchronized public void setState(boolean newState) {
-            state = newState;
-            System.out.println("S переключил состояние в " + newState);
-            if (newState) {
-                notifyAll();
-            }
-        }
-
-        synchronized public boolean getState() {
-            if (!state) {
-                try {
-                    System.out.println("W ждет");
-                    wait();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            return state;
-        }
     }
 
     static class W implements Runnable {
-        S s;
-        int start = 30;
+        State state;
 
-        W(S s) {
-            this.s = s;
+        public W(State state) {
+            this.state = state;
         }
-
+        int start = 30;
         public void run() {
             for (int i = start; i > 0; i--) {
-                if (s.getState()) {
+                if (state.getState()) {
                     System.out.println("W возвращает значение: " + i);
                     try {
                         Thread.sleep(100);
@@ -63,13 +71,14 @@ public class Example1Ver1 {
                     }
                 }
             }
-            s.stop();
+            state.stop();
         }
     }
 
     public static void main (String[] args) {
-        S s = new S();
-        W w = new W(s);
+        State state = new State();
+        S s = new S(state);
+        W w = new W(state);
 
         Thread threadS = new Thread(s);
         Thread threadW = new Thread(w);
